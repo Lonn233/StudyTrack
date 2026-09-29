@@ -1,0 +1,21 @@
+# 桌面学习行为检测与专注陪伴助手 —— 依赖
+#
+# Windows/Linux 开发机与树莓派通用，但**树莓派上要额外钉死版本**，
+# 见 README 第八节。以下注释里的版本号是已在 Windows 上验证过的组合。
+
+mediapipe==1.0.1
+opencv-contrib-python==5.0.0.93
+numpy==2.5.3
+PySide6==6.8.0.2
+PyYAML==6.0.3
+
+# 物体检测：二选一（或都装）
+#   - onnxruntime 是运行时首选（轻，Pi 上必需）
+#   - ultralytics 只在需要重新导出 ONNX / 换模型时才需要（会拉 torch，约 1.4 GB）
+onnxruntime==1.30.0
+# ultralytics==8.4.157
+
+# 树莓派上的版本约束（不要在桌面机上照抄）：
+#   onnxruntime==1.20.1   # 1.21.0 在 Cortex-A72 上 import 即 SIGILL
+#   numpy<2.0             # mediapipe 原生扩展是 numpy 1.x C ABI
+#   PySide6==6.8.0.2      # 唯一 aarch64 wheel 是 manylinux_2_31

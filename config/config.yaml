@@ -1,0 +1,173 @@
+# Study Assistant — 桌面学习行为检测与专注陪伴助手
+#
+# 所有阈值集中在此，方便调参与未来迁移到树莓派。
+
+app:
+  name: "Study Assistant"
+  user_data_dir: ""          # 空 = ~/StudyAssistant
+  frame_width: 640
+  frame_height: 480
+  target_fps: 30
+
+camera:
+  backend: "auto"            # auto | opencv | picamera2
+  index: 0
+  width: 640
+  height: 480
+  fps: 30
+  mirror: true
+
+vision:
+  # 分频调度：不同模型跑不同频率，节省算力（树莓派关键）
+  hands:
+    enabled: true
+    interval_ms: 66          # ~15 Hz
+    max_hands: 2
+    min_detection_confidence: 0.5
+    min_tracking_confidence: 0.5
+    model_path: "models/hand_landmarker.task"
+  objects:
+    enabled: true
+    interval_ms: 200         # 5 Hz
+    backend: "onnx"          # onnx | ultralytics | none
+    model_path: "models/yolo11n.onnx"
+    input_size: 320
+    confidence: 0.35
+    iou_threshold: 0.45
+    # COCO 类别 id -> 本项目语义名
+    class_map:
+      person: "person"
+      cell phone: "phone"
+      book: "book"
+      laptop: "laptop"
+      keyboard: "keyboard"
+      mouse: "mouse"
+      cup: "cup"
+    keep_classes:
+      - person
+      - phone
+      - book
+      - laptop
+      - keyboard
+      - mouse
+      - cup
+  pose:
+    enabled: false           # 默认不启用，仅作离席辅助
+    interval_ms: 500
+
+behavior:
+  # 时序融合
+  window_seconds: 3.0        # 行为概率滑动窗口
+  fusion_hz: 10              # 行为融合频率
+  min_confidence: 0.45       # 低于此值输出 UNCERTAIN
+
+  # 状态切换滞后（防止疯狂跳变）
+  to_distracted_seconds: 3.0 # 分心证据持续多久才确认
+  to_focused_seconds: 2.0    # 恢复专注需要持续多久
+  away_grace_seconds: 3.0    # <3s 保持上一状态
+  away_confirm_seconds: 8.0  # >8s 确认离席
+  # 人最近一次被真实检出后多久内算"确认在场"。
+  # 作用是**否决**离席 —— 人都还在画面里就不可能离席。
+  # 摄像头只拍到脸、手在桌子下面时，没有这条就会被误判成离席。
+  person_present_max_age: 3.0
+
+  # 手-物交互
+  interaction_distance_px: 90   # 手到物体框的距离阈值（像素）
+  interaction_overlap_min: 0.05 # 关键点落在框内的最小比例
+
+  # ⚠️ 运动能量的单位 = **归一化速度**（每秒移动的屏幕宽度比例）。
+  #    参考量级：手停在书上不动 ≈ 0.005；写字 ≈ 0.02~0.08；
+  #    挥手/找东西 ≈ 0.2 以上。
+  writing:
+    min_motion_energy: 0.015    # 低于此值不像在写
+    full_motion_energy: 0.05    # 达到此值视为充分书写动作
+    max_motion_range: 0.25      # 1s 窗口内最大位移范围，再大就是在挥
+    min_duration: 2.0
+  # 阅读特征
+  #
+  # ⚠️ 这里的关键是「静止」必须是**必要条件**（能否决阅读），而不是一个
+  #    只占部分权重的加分项。旧配置 max_motion_energy=0.018 与下限 0.006
+  #    挤在一起，能量一到 0.018 静止度就归零；而写字的 full_motion_energy
+  #    要到 0.05 —— 中间 0.018~0.05 这一整段「手正在写字」的区域里，阅读分
+  #    已经死在硬下限（0.55），写字分才爬到 0.85~1.00，两者只差零点几，
+  #    观感就是「写字和看书分不开」。现在：
+  #      能量 < static_energy        → 完全静止，静止度接近 1
+  #      能量 > static_energy_grace  → 手明显在动，阅读分→0（直接否决）
+  #      中间                        → 静止度平滑下滑，给翻页/微动留余地
+  reading:
+    static_motion_energy: 0.006 # 低于此值算"手接近静止"（用于"有多静"打分）
+    max_motion_energy: 0.06     # 静止度衰减上限（要覆盖到写字才归零）
+    static_energy_grace: 0.018  # 高于此值手明显在动 → 阅读分归零（否决线）
+    min_duration: 2.5
+    page_turn_grace: 2.0        # 翻页后仍算阅读（手离开画面时的底分维持）
+  # 手机分心
+  phone:
+    candidate_seconds: 2.0      # 手-手机交互多久进候选
+    confirm_seconds: 3.0        # 候选持续多久确认 PHONE_USE
+    event_seconds: 10.0         # 持续多久记一次分心事件
+    quick_look_seconds: 5.0     # <5s 视为看时间，不提醒
+    # 默认**必须检出手机物体**才定罪。phone ROI 只是先验：出厂框覆盖画面
+    # 左下整条竖带，看书搭着的手、敲键盘下探的手都会落进去 —— 据此定罪会
+    # 把看书/打字判成玩手机，而假的"玩手机"会记分心、触发提醒、拉低专注分。
+    require_object_contact: true
+    position_only_penalty: 0.6  # 上面置 false 时，纯位置命中的折价
+  # 无目的动作
+  fidgeting:
+    min_motion_range: 0.30      # 3s 窗口内运动幅度下限
+    full_motion_range: 0.55     # 达到此幅度算充分的小动作
+    min_direction_change: 0.5   # 方向频繁改变（次/秒）
+    min_motion_energy: 0.02     # 能量下限：手几乎不动就不算小动作
+                                # （手不动时关键点抖动能刷出 4/s 的假方向反转）
+    min_duration: 4.0
+  # 电脑学习
+  # ⚠️ 判定链是「检出键盘/笔记本物体 → 手与它交互 → 正在做打字动作」。
+  #    keyboard ROI 只做召回兜底，且兜底也必须过打字签名 —— 位置本身
+  #    永远无法单独判定电脑学习。
+  computer:
+    min_duration: 2.0
+    # --- 打字动作签名：四个量取几何平均，缺一环就归零 ---
+    typing_dir_min: 2.0         # 方向反转率下限（次/秒）——键击是离散反转
+    typing_dir_full: 6.0        # 达到此值此项满分
+    typing_burst_min: 0.45      # 速度波动比 std/speed 下限——键击是脉冲式
+    typing_burst_full: 0.75
+    typing_range_max: 0.12      # 3s 运动幅度上限——手不该离开键盘跑远
+    typing_energy_min: 0.10     # 运动能量下限——排除"手压着键盘发呆"
+    typing_energy_full: 0.25
+    typing_min_score: 0.45      # 签名达标线（几何平均后）
+    position_only_penalty: 0.6  # 只靠位置、一个键盘物体都没检出时的折价
+    require_object_contact: false  # true = 完全忽略位置通路（纯检测驱动）
+    suppress_fidget: true       # 打字签名成立时不再判小动作
+
+notifications:
+  enabled: true
+  distracted_warn_seconds: 10   # 表情变化
+  distracted_soft_seconds: 20   # 轻提醒
+  distracted_alert_seconds: 30  # 声音/通知
+  cooldown_seconds: 60          # 提醒冷却
+  milestones_minutes: [30, 60, 90, 120]   # 按有效专注时间触发
+
+session:
+  break_after_minutes: 45       # 连续专注多久建议休息
+  break_minutes: 5              # 休息时长
+  streak_grace_seconds: 20      # 多长的停顿不打断"连续专注"
+
+storage:
+  enabled: true
+  database: "study_assistant.sqlite3"
+  sample_interval_seconds: 5.0  # behavior_samples 每 5 秒一条
+
+ui:
+  eyes:
+    width: 220
+    height: 120
+    always_on_top: true
+    position: "bottom-right"    # bottom-right | bottom-left | top-right
+    opacity: 0.95
+  dashboard:
+    enabled: true
+  debug:
+    enabled: true               # 开发期显示 debug 窗口
+    show_trajectory: true
+    show_objects: true
+    show_interaction_lines: true
+    show_roi: true

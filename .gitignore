@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行产物（调试 dump / 截图 / 探针输出）
+out/
+
+# 本地用户数据
+*.sqlite3
+config/calibration.json
+
+# 工具目录
+.workbuddy/
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
