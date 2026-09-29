@@ -110,6 +110,16 @@ class HandObjectEngine:
         self.distance_px = float(behavior.get("interaction_distance_px", 90))
         self.overlap_min = float(behavior.get("interaction_overlap_min", 0.05))
 
+        # 位置先验总开关。False（默认）时所有 ROI 判定被中性化：
+        #   * paper/keyboard/phone 的 ROI 命中一律 False —— 写字/阅读的
+        #     上下文只剩「检出 book 物体」，键盘/手机只剩物体检测通路；
+        #   * desk 判定跳过：hand_on_desk 恒 True（IDLE 不因"不在桌面"
+        #     折价）、hands_off_desk 恒空（小动作不因位置加成）。
+        # 行为融合层不需要任何改动 —— 它读到的"位置信号"在这台机器上
+        # 永远是中性的，结论完全由物体检测与手部动作特征驱动。
+        # 运行时可在菜单「标定 → 启用位置先验」切换本属性。
+        self.use_position_prior = bool(behavior.get("use_position_prior", False))
+
         self.calibration = calibration
         self.contacts = InteractionTracker(break_grace=0.6)
 
@@ -133,20 +143,28 @@ class HandObjectEngine:
         calib = self.calibration
 
         # ---------- 1) 手 → ROI ----------
+        use_pos = self.use_position_prior
         for hand in hands:
             label = hand.label
             cx, cy = hand.palm_center
 
-            report.hand_in_study[label] = calib.contains("study", cx, cy)
-            report.hand_in_paper_roi[label] = calib.contains("paper", cx, cy)
-            report.hand_in_keyboard_roi[label] = calib.contains("keyboard", cx, cy)
-            report.hand_in_phone_roi[label] = calib.contains("phone", cx, cy)
+            if use_pos:
+                report.hand_in_study[label] = calib.contains("study", cx, cy)
+                report.hand_in_paper_roi[label] = calib.contains("paper", cx, cy)
+                report.hand_in_keyboard_roi[label] = calib.contains("keyboard", cx, cy)
+                report.hand_in_phone_roi[label] = calib.contains("phone", cx, cy)
 
-            on_desk = calib.contains("desk", cx, cy)
-            report.hand_on_desk[label] = on_desk
-
-            if not on_desk:
-                report.hands_off_desk.append(label)
+                on_desk = calib.contains("desk", cx, cy)
+                report.hand_on_desk[label] = on_desk
+                if not on_desk:
+                    report.hands_off_desk.append(label)
+            else:
+                # 位置先验关闭：ROI 信号全部中性化（见 __init__ 注释）。
+                report.hand_in_study[label] = False
+                report.hand_in_paper_roi[label] = False
+                report.hand_in_keyboard_roi[label] = False
+                report.hand_in_phone_roi[label] = False
+                report.hand_on_desk[label] = True
 
         # ---------- 2) 手 → 物体（几何测量）----------
         all_measures = []

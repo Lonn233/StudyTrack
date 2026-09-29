@@ -54,8 +54,7 @@ TYPING_RAW_NAMES = ("dir_rate", "std_ratio", "range_3s", "energy")
 #: 分心类排在最后同样是刻意取舍：平分本身就说明证据不足，此时不该给用户
 #: 记一笔分心（假分心的代价是虚假提醒 + 专注分被拉低）。
 _TIE_BREAK_ORDER = (
-    Behavior.READING,
-    Behavior.WRITING,
+    Behavior.PAPER_STUDY,
     Behavior.COMPUTER_STUDY,
     Behavior.IDLE,
     Behavior.HAND_AWAY,
@@ -134,25 +133,19 @@ class BehaviorFusionEngine:
     def __init__(self, config):
         b = config.behavior
 
-        # --- 写字 ---
-        writing = b.get("writing", {})
-        self.write_energy_lo = float(writing.get("min_motion_energy", 0.015))
-        self.write_energy_hi = float(writing.get("full_motion_energy", 0.05))
-        self.write_range_max = float(writing.get("max_motion_range", 0.25))
-
-        # --- 阅读 ---
-        reading = b.get("reading", {})
-        self.read_energy_static = float(reading.get("static_motion_energy", 0.006))
-        # 静止度开始衰减的能量上限。**这个值原来是 0.018，离下限 0.006 太近**：
-        # 意味着能量一到 0.018 静止度就归零，而"写字"的能量项要到 0.05 才满分 ——
-        # 中间 0.018~0.05 这一大片区域里，阅读分已经死在硬下限、写字分还在往上爬，
-        # 就出现"写字和阅读分不开"。放宽到 0.06，让静止度能平滑地覆盖
-        # "认真读书（≈0.002）→ 轻微翻动（≈0.02）→ 写字（≥0.05）"整条轴。
-        self.read_energy_max = float(reading.get("max_motion_energy", 0.06))
-        # 静止是阅读的**必要条件**：手在动就不可能是在看书。
-        # `static_energy_grace` 就是这条否决线 —— 超过它，阅读分直接归零，
-        # 而不是只把 0.45 的权重扣掉一部分。
-        self.read_static_grace = float(reading.get("static_energy_grace", 0.018))
+        # --- 纸质学习（读书 + 写字合并为一个行为，2026-09-29）---
+        # 两套运动特征阈值都留在 `paper_study` 配置段里：
+        #   * 书写动作带：能量 ramp（min→full）+ 幅度收敛 + 局部性；
+        #   * 静止阅读带：静止度 fall（static→max）+ 否决线 grace。
+        # 打分时两条各算各的、**取最大值**——静止到书写全能量带连续覆盖，
+        # 不再有"写字 vs 阅读谁赢"的区分问题（它们本来就是同一件事）。
+        paper = b.get("paper_study", {})
+        self.paper_energy_lo = float(paper.get("min_motion_energy", 0.015))
+        self.paper_energy_hi = float(paper.get("full_motion_energy", 0.05))
+        self.paper_range_max = float(paper.get("max_motion_range", 0.25))
+        self.paper_static_lo = float(paper.get("static_motion_energy", 0.006))
+        self.paper_static_max = float(paper.get("max_motion_energy", 0.06))
+        self.paper_static_grace = float(paper.get("static_energy_grace", 0.018))
 
         # --- 手机 ---
         phone = b.get("phone", {})
@@ -203,8 +196,7 @@ class BehaviorFusionEngine:
 
         # 组装行为判定用的行为集合
         self._score_keys = [
-            Behavior.WRITING,
-            Behavior.READING,
+            Behavior.PAPER_STUDY,
             Behavior.COMPUTER_STUDY,
             Behavior.PHONE_USE,
             Behavior.FIDGETING,
@@ -406,15 +398,29 @@ class BehaviorFusionEngine:
         scores[Behavior.PHONE_USE] = phone_score
         evidence[Behavior.PHONE_USE] = phone_ev
 
-        # ---------- 3) 写字 ----------
+        # ---------- 3+4) 纸质学习（读书 / 写字，合并打分）----------
+        # 2026-09-29 起 READING 与 WRITING 合并为一个行为 PAPER_STUDY：
+        # 对外只有「纸质学习」一条分数、一个判定，不再有"写字还是看书"的
+        # 区分问题。内部仍然保留两套**已验证**的运动特征公式，各算各的：
+        #
+        #   * 书写动作支路（手压着纸/书、能量在书写带）——
+        #       0.35*时长 + 0.30*能量升 + 0.20*幅度收敛 + 0.15*局部性
+        #   * 静止阅读支路（手接近静止）——
+        #       静止仍是必要条件（能量超否决线 → 该支路归零），
+        #       门内 0.45*时长 + 0.55*静止度；手离开但书还在 → 底分维持。
+        #
+        # 最终分 = **两条支路取最大值**。取 max 而不是加权和的原因：两条
+        # 支路描述的是同一件事（手在纸面上）的不同活动水平，加权会把"静止
+        # 的阅读"和"在写"互相稀释；取 max 则覆盖 0.002（读书）→ 0.05+（写字）
+        # 整条能量轴，不存在中段死区。
         write_score = 0.0
         write_ev = []
         if has_hands and interactions.paper_contact:
             dur = interactions.paper_duration
             duration_term = _ramp(dur, 0.5, 2.0)
-            energy_term = _ramp(max_energy, self.write_energy_lo, self.write_energy_hi)
+            energy_term = _ramp(max_energy, self.paper_energy_lo, self.paper_energy_hi)
             # 幅度过大会被判为"挥手"，写字是收敛的小幅动作
-            range_term = _fall(max_range_1s, self.write_range_max, self.write_range_max * 1.8)
+            range_term = _fall(max_range_1s, self.paper_range_max, self.paper_range_max * 1.8)
             local_term = 1.0 if any_local else 0.6
 
             write_score = (
@@ -424,27 +430,8 @@ class BehaviorFusionEngine:
                 + 0.15 * local_term
             )
             write_ev.append(f"手在书写区 {dur:.1f}s")
-            write_ev.append(f"运动能量 {max_energy:.3f}")
             write_ev.append(f"1s 幅度 {max_range_1s:.3f}")
-        scores[Behavior.WRITING] = write_score
-        evidence[Behavior.WRITING] = write_ev
 
-        # ---------- 4) 阅读 ----------
-        # 判据链：**手在书写区/书在画面 → 手确实是静止的**。
-        #
-        # 旧版是 `read_score = 0.55*时长 + 0.45*静止度`，两个问题叠在一起：
-        #
-        #  ① 时长项与写字**共用同一根计时器**（都取 interactions.paper_duration），
-        #     且 2.5s 后恒为 1.0 → 阅读分有一条 **0.550 的硬下限**。写字时手当然
-        #     也压在纸上、纸区停留当然也够久，于是"正在写字"时阅读照样拿 0.550，
-        #     写字封顶 1.000 —— 两者最大差距只有 0.45，而且**永远弥合不了**。
-        #  ② 静止度只在 0.006~0.018 这条极窄的能量带里变化，而写字的能量项要到
-        #     0.05 才满分。也就是"手在写"的这一整段（0.018~0.05），静止度恒为 0、
-        #     反而失去了区分力，只剩时长项在两边同时给分。
-        #
-        # 所以修法不是调权重，而是**换角色**：运动必须先"足够静止"，
-        # 阅读才谈得上时长 —— 静止从"加分项"变成"必要条件"（具备否决权）。
-        # 这样"在写"时阅读分会真的被压下去，"在看书"时又不受影响。
         read_score = 0.0
         read_ev = []
         book_present = presence.is_present("book", min_duration=0.5)
@@ -453,12 +440,11 @@ class BehaviorFusionEngine:
         if paper_ctx:
             dur = interactions.paper_duration
             duration_term = _ramp(dur, 0.8, 2.5)
-            # 静止度：只看"手有多静"这一件事（用于给阅读分定档）。
-            static_term = _fall(max_energy, self.read_energy_static, self.read_energy_max)
-            # 静止**门限**：手明显在动就直接否决阅读。它只做"够不够静"的判决，
-            # 不参与加权 —— 否则会和上面的 static_term 叠加（同一件事扣两次），
-            # 在过渡带里留下"阅读分剩一点、写字分还没起来"的窄缝，反而制造抖动。
-            static_ok = max_energy <= self.read_static_grace
+            # 静止度：只看"手有多静"这一件事（用于给阅读支路定档）。
+            static_term = _fall(max_energy, self.paper_static_lo, self.paper_static_max)
+            # 静止**门限**：手明显在动时静止阅读支路归零（书写支路接管）。
+            # 它只做"够不够静"的判决，不参与加权。
+            static_ok = max_energy <= self.paper_static_grace
 
             if has_hands:
                 if static_ok:
@@ -467,23 +453,33 @@ class BehaviorFusionEngine:
                         f"书写区停留 {dur:.1f}s / 静止度 {static_term:.2f}"
                     )
                 else:
-                    # 手在动 → 不可能是在看书。阅读分归零，把位置让给写字。
                     read_score = 0.0
                     read_ev.append(
                         f"手在动（能量 {max_energy:.3f} > "
-                        f"{self.read_static_grace:.3f}）→ 不像在看书"
+                        f"{self.paper_static_grace:.3f}）→ 静止阅读支路不成立"
                     )
             else:
-                # 手离开但书还在（低头看书/翻页间隙）。
-                # 这是真正需要"翻页宽限"的场景 —— 手不在，谈不上能量门限，
-                # 只能靠"书还在 + 刚才在读"来维持，所以给一个较低的常数底分。
+                # 手离开但书还在（低头看书/翻页间隙）：
+                # 靠"书还在 + 刚才在读"维持一个较低的常数底分。
                 read_score = 0.45 * duration_term + 0.25
                 read_ev.append("书在画面内但手已离开")
 
+        # 合并：对外只有一条「纸质学习」分数与证据。
+        paper_score = max(write_score, read_score)
+        paper_ev = []
+        if paper_ctx:
+            paper_ev.append(
+                f"合并打分：书写动作 {write_score:.2f} / 静止阅读 {read_score:.2f}（取高者）"
+            )
+            paper_ev.extend(write_ev if write_score >= read_score else read_ev)
+            if has_hands:
+                # 运动能量无条件入证据：不管哪条支路获胜，调试面板都能看到
+                # 手当前的活动水平（这也是能量轴验收的读数来源）。
+                paper_ev.append(f"运动能量 {max_energy:.3f}")
             if book_present:
-                read_ev.append("检测到 book")
-        scores[Behavior.READING] = read_score
-        evidence[Behavior.READING] = read_ev
+                paper_ev.append("检测到 book")
+        scores[Behavior.PAPER_STUDY] = paper_score
+        evidence[Behavior.PAPER_STUDY] = paper_ev
 
         # ---------- 4.5) 打字动作签名 ----------
         # 「手在键盘区」只是位置、不是证据。真正的打字必须过四个量的
@@ -608,7 +604,7 @@ class BehaviorFusionEngine:
         idle_score = 0.0
         idle_ev = []
         if has_hands:
-            quiet = _fall(max_energy, self.read_energy_static, self.read_energy_max * 1.5)
+            quiet = _fall(max_energy, self.paper_static_lo, self.paper_static_max * 1.5)
             on_desk = any(interactions.hand_on_desk.values())
 
             # 手已经落在某个有意义的区域（书写区 / 键盘 / 手机）里时，

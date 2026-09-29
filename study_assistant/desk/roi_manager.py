@@ -73,8 +73,8 @@ class ROI:
 # 标定需要收集的 ROI 及其默认范围与用途说明。
 #
 # ⚠️ 默认值刻意做成**互不重叠**：`paper` 在上方中部、`keyboard` 在下方中部。
-# 如果两者重叠，"手在键盘上"会同时命中 `paper`，写字判定的 `not paper_contact`
-# 前置条件就失效了，COMPUTER_STUDY 永远抢不过 WRITING。
+# 如果两者重叠，"手在键盘上"会同时命中 `paper`，电脑学习判定的 `not paper_contact`
+# 前置条件就失效了，COMPUTER_STUDY 永远抢不过 PAPER_STUDY。
 # 真实使用时应让用户按自己的桌面重新标定。
 ROI_SPECS = [
     ("desk", "整个桌面区域", 0.05, 0.15, 0.95, 0.95),

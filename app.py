@@ -653,6 +653,17 @@ def run_gui(app: StudyAssistantApp, args) -> int:
     dashboard.signal_camera_selected.connect(on_camera_selected)
     dashboard.signal_camera_rescan.connect(on_camera_rescan)
 
+    # --- 位置先验开关（判定是否使用标定框）---
+    def on_position_prior(on: bool) -> None:
+        app.core.engine.use_position_prior = bool(on)
+        state = "启用" if on else "关闭"
+        dashboard.post_system_event(
+            f"已{state}位置先验：{'标定框重新参与判定' if on else '判定只看物体检测与手部动作'}"
+        )
+        print(f"[判定] 位置先验已{state}")
+
+    dashboard.signal_position_prior_changed.connect(on_position_prior)
+
     # --- 摄像头菜单初值 ---
     app.current_camera_index = getattr(getattr(app.pipeline, "camera", None), "index", 0)
     app.camera_list = []

@@ -87,8 +87,7 @@ class TemporalEngine:
 
         # 行为 → 最短持续时间（秒），由配置给出
         self.min_durations: dict[Behavior, float] = {
-            Behavior.WRITING: float(b.get("writing", {}).get("min_duration", 2.0)),
-            Behavior.READING: float(b.get("reading", {}).get("min_duration", 2.5)),
+            Behavior.PAPER_STUDY: float(b.get("paper_study", {}).get("min_duration", 2.0)),
             Behavior.COMPUTER_STUDY: float(b.get("computer", {}).get("min_duration", 2.0)),
             Behavior.FIDGETING: float(b.get("fidgeting", {}).get("min_duration", 4.0)),
             Behavior.PHONE_USE: float(b.get("phone", {}).get("confirm_seconds", 3.0)),

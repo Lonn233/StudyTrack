@@ -47,8 +47,7 @@ class EyeMood:
     NEUTRAL = "NEUTRAL"
     IDLE = "IDLE"
     FOCUSED = "FOCUSED"
-    WRITING = "WRITING"
-    READING = "READING"
+    PAPER_STUDY = "PAPER_STUDY"
     PHONE_USE = "PHONE_USE"
     FIDGETING = "FIDGETING"
     SUSPICIOUS = "SUSPICIOUS"
@@ -87,13 +86,9 @@ MOOD_STYLE = {
         openness=0.92, pupil=0.95, brow=0.0, brow_tilt=0.25, squash=0.0, sleepy=0.0,
         label="专注中",
     ),
-    EyeMood.WRITING: dict(
-        openness=0.72, pupil=0.85, brow=0.0, brow_tilt=-0.35, squash=0.0, sleepy=0.2,
-        label="在写字",
-    ),
-    EyeMood.READING: dict(
-        openness=0.80, pupil=0.80, brow=0.0, brow_tilt=0.15, squash=0.15, sleepy=0.1,
-        label="在阅读",
+    EyeMood.PAPER_STUDY: dict(
+        openness=0.76, pupil=0.82, brow=0.0, brow_tilt=-0.10, squash=0.10, sleepy=0.15,
+        label="纸质学习中",
     ),
     EyeMood.PHONE_USE: dict(
         openness=0.62, pupil=1.00, brow=0.0, brow_tilt=-0.75, squash=0.0, sleepy=0.0,

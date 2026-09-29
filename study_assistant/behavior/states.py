@@ -12,8 +12,7 @@ from enum import Enum
 class Behavior(str, Enum):
     """用户正在做什么。"""
 
-    WRITING = "WRITING"                # 写字 / 做题
-    READING = "READING"                # 阅读（书或纸）
+    PAPER_STUDY = "PAPER_STUDY"        # 纸质学习（读书 / 写字 / 做题）
     COMPUTER_STUDY = "COMPUTER_STUDY"  # 用电脑学习 / 敲代码
     PHONE_USE = "PHONE_USE"            # 玩手机（分心）
     FIDGETING = "FIDGETING"            # 无目的摆弄（分心）
@@ -24,7 +23,7 @@ class Behavior(str, Enum):
 
     @property
     def is_productive(self) -> bool:
-        return self in (Behavior.WRITING, Behavior.READING, Behavior.COMPUTER_STUDY)
+        return self in (Behavior.PAPER_STUDY, Behavior.COMPUTER_STUDY)
 
     @property
     def is_distracting(self) -> bool:
@@ -48,8 +47,7 @@ class FocusState(str, Enum):
 
 # 行为中文名（UI / 日志用）
 BEHAVIOR_LABELS = {
-    Behavior.WRITING: "写字",
-    Behavior.READING: "阅读",
+    Behavior.PAPER_STUDY: "纸质学习",
     Behavior.COMPUTER_STUDY: "电脑学习",
     Behavior.PHONE_USE: "玩手机",
     Behavior.FIDGETING: "小动作",
@@ -69,8 +67,7 @@ FOCUS_LABELS = {
 
 # 行为 → 状态的基础映射（状态机在此基础上叠加滞后与离席逻辑）
 BEHAVIOR_TO_FOCUS = {
-    Behavior.WRITING: FocusState.FOCUSED,
-    Behavior.READING: FocusState.FOCUSED,
+    Behavior.PAPER_STUDY: FocusState.FOCUSED,
     Behavior.COMPUTER_STUDY: FocusState.FOCUSED,
     Behavior.PHONE_USE: FocusState.DISTRACTED,
     Behavior.FIDGETING: FocusState.DISTRACTED,
@@ -82,8 +79,7 @@ BEHAVIOR_TO_FOCUS = {
 
 # 行为 → 悬浮窗表情（键必须是 ui.eye_widget.EyeMood 里的常量值）
 BEHAVIOR_TO_MOOD = {
-    Behavior.WRITING: "WRITING",
-    Behavior.READING: "READING",
+    Behavior.PAPER_STUDY: "PAPER_STUDY",
     Behavior.COMPUTER_STUDY: "FOCUSED",
     Behavior.PHONE_USE: "PHONE_USE",
     Behavior.FIDGETING: "FIDGETING",

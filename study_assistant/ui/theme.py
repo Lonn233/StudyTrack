@@ -92,8 +92,7 @@ STATE_COLORS = {
 
 # 行为：学习类用冷色、分心类用暖色、其余灰阶。仅用于行为条，不用作填充。
 BEHAVIOR_COLORS = {
-    Behavior.WRITING: BLUE,
-    Behavior.READING: PURPLE,
+    Behavior.PAPER_STUDY: PURPLE,
     Behavior.COMPUTER_STUDY: GREEN,
     Behavior.PHONE_USE: RED,
     Behavior.FIDGETING: AMBER,

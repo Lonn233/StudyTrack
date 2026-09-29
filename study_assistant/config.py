@@ -65,24 +65,28 @@ _DEFAULTS: dict[str, Any] = {
         "person_present_max_age": 3.0,
         "interaction_distance_px": 90,
         "interaction_overlap_min": 0.05,
-        "writing": {
-            "min_motion_energy": 0.015,
-            "full_motion_energy": 0.05,
-            "max_motion_range": 0.25,
-            "min_duration": 2.0,
-        },
-        "reading": {
-            "static_motion_energy": 0.006,
-            # 静止度衰减上限。**原来是 0.018，与下限 0.006 挤在一起**：能量一到
-            # 0.018 静止度就归零，而写字的能量项要 0.05 才满分 → 0.018~0.05 这
-            # 一整段里阅读分已死在硬下限、写字分还在爬，"写字和阅读分不开"。
-            # 放宽到 0.06 才能覆盖「认真读书 → 轻微翻动 → 写字」整条轴。
-            "max_motion_energy": 0.06,
-            # 静止是阅读的**必要条件**（否决权），不是加分项。
-            # 手在动就不可能是在看书：能量超过 static_energy_grace 时阅读分→0。
-            "static_energy_grace": 0.018,
-            "min_duration": 2.5,
-            "page_turn_grace": 2.0,
+        # 位置先验总开关（标定的桌面框：paper/keyboard/phone/desk）。
+        # False（默认）：行为判定**完全不使用位置**——纸质学习=检出 book 物体 +
+        #   书写动作/手静止；电脑学习/玩手机本就以物体检测为主。标定框不再
+        #   影响任何结论，忘了标定/框没对准也不会产生误判。
+        # True：恢复旧行为——手落在标定框内可作为「写字/阅读」的上下文、
+        #   键盘/手机位置的召回兜底（手机仍需检出物体定罪）、IDLE 的桌面
+        #   归属与小动作的"手离开桌面"加成。
+        "use_position_prior": False,
+        # 纸质学习（读书 + 写字合并为一个行为 PAPER_STUDY，2026-09-29）。
+        # 打分 = 书写动作支路与静止阅读支路取最大值，两套阈值都在这一段。
+        # 运动能量单位 = 归一化速度（每秒移动的屏幕宽度比例）：
+        #   手停在书上不动 ≈ 0.005；写字 ≈ 0.02~0.08；挥手/找东西 ≈ 0.2+。
+        "paper_study": {
+            "min_duration": 2.0,        # 持续多久才对外宣布
+            # --- 书写动作支路 ---
+            "min_motion_energy": 0.015, # 低于此值不像在写
+            "full_motion_energy": 0.05, # 达到此值视为充分书写动作
+            "max_motion_range": 0.25,   # 1s 窗口内最大位移范围，再大就是在挥
+            # --- 静止阅读支路（静止是必要条件，能否决）---
+            "static_motion_energy": 0.006, # 低于此值算"手接近静止"
+            "max_motion_energy": 0.06,     # 静止度衰减上限（覆盖到写字带才归零）
+            "static_energy_grace": 0.018,  # 高于此值手明显在动 → 静止支路归零
         },
         "phone": {
             "candidate_seconds": 2.0,

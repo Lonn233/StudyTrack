@@ -133,6 +133,7 @@ class Dashboard(QMainWindow):
     signal_quit = Signal()                  # 退出
     signal_camera_selected = Signal(int)    # 切换到指定摄像头索引
     signal_camera_rescan = Signal()         # 重新扫描摄像头
+    signal_position_prior_changed = Signal(bool)  # 位置先验开/关（标定框是否参与判定）
 
     # 叠加图层 key → 菜单文案（与 DebugView 的开关同一份 options）
     LAYER_LABELS = (
@@ -151,6 +152,7 @@ class Dashboard(QMainWindow):
         self.setMinimumSize(1000, 700)
 
         self.calibration = calibration
+        self.config = config          # 供菜单读初始开关状态（位置先验等）
         self._last_events_seen = 0
         self.paused = False
 
@@ -197,6 +199,20 @@ class Dashboard(QMainWindow):
         self._calib_status_action = m_calib.addAction("标定状态：未知")
         self._calib_status_action.setEnabled(False)
         m_calib.addSeparator()
+        # 位置先验开关：关闭时判定只依赖物体检测与手部动作，
+        # 标定框不参与任何结论（config 默认 false，见 behavior.use_position_prior）
+        pos_default = False
+        try:
+            pos_default = bool((self.config.behavior or {}).get(
+                "use_position_prior", False
+            ))
+        except Exception:
+            pass
+        act_pos = m_calib.addAction("启用位置先验（按标定框位置判定）")
+        act_pos.setCheckable(True)
+        act_pos.setChecked(pos_default)
+        act_pos.toggled.connect(self.signal_position_prior_changed.emit)
+        self._pos_prior_action = act_pos
         act_calib = m_calib.addAction("重新标定桌面…")
         act_calib.triggered.connect(self.signal_calibrate.emit)
 

@@ -262,9 +262,9 @@ class Scenario:
         """手停在某个区域里基本不动（模拟看书写字时手压着书）。
 
         jitter 默认 0.0002 —— 这个量级对应手掌速度约 0.004/s，落在
-        `reading.static_motion_energy`（0.006）以下。如果给大了（例如
-        0.0015 → 速度 0.03/s），就会被判成"在写字"，测试也就不再是
-        在测阅读了。
+        `paper_study.static_motion_energy`（0.006）以下。如果给大了（例如
+        0.0015 → 速度 0.03/s），静止阅读支路就会让位给书写动作支路，
+        测试也就不再是"手压着书"的场景了。
         """
         base = ROI_CENTER[roi]
         steps = max(1, int(round(seconds / self.dt)))
@@ -441,10 +441,20 @@ class Scenario:
 
 
 def load_test_config(overrides: dict | None = None):
-    """加载工程配置（可覆盖），用于测试。"""
+    """加载工程配置（可覆盖），用于测试。
+
+    测试默认把「位置先验」打开：A-O 组的语义建立在「合成手放在标定框内」
+    之上，验证的是判定公式本身。真实产品的 config.yaml 默认是
+    ``use_position_prior: false``（判定只看物体检测与手部动作），
+    关闭态的行为由 P 组用显式 override 单独覆盖。
+    """
     from study_assistant.config import Config, _deep_merge
 
     config = Config.load(ROOT / "config" / "config.yaml")
+
+    config.data = _deep_merge(
+        config.data, {"behavior": {"use_position_prior": True}}
+    )
 
     if overrides:
         config.data = _deep_merge(config.data, overrides)

@@ -99,31 +99,31 @@ def desk_objects():
 
 
 # ======================================================================
-# A. 写字 → 专注
+# A. 纸质学习（书写动作）→ 专注
 # ======================================================================
 
 
 def scenario_a() -> None:
-    section("A. 写字（手在书写区 + 持续小幅运动）→ WRITING / FOCUSED")
+    section("A. 纸质学习-书写（手在书写区 + 持续小幅运动）→ PAPER_STUDY / FOCUSED")
 
     scn = S.new_scenario()
     scn.step(3, hands=[S.make_hand("right", S.ROI_CENTER["paper"])])
     scn.wiggle(12.0, "paper", amplitude=0.012, frequency=2.5)
 
     behavior = scn.behaviors[-1][1]
-    first_write = scn.first_time_in_behavior(Behavior.WRITING)
+    first_paper = scn.first_time_in_behavior(Behavior.PAPER_STUDY)
     first_focus = scn.first_time_in_state(FocusState.FOCUSED)
 
-    check("最终行为为 WRITING", behavior is Behavior.WRITING, f"实际 {behavior.value}")
+    check("最终行为为 PAPER_STUDY", behavior is Behavior.PAPER_STUDY, f"实际 {behavior.value}")
     check(
         "判定为 FOCUSED",
         scn.ever_in_state(FocusState.FOCUSED),
         f"首次 {first_focus:.1f}s" if first_focus is not None else "从未进入",
     )
     check(
-        "在 8 秒内收敛到 WRITING",
-        first_write is not None and first_write <= 8.0,
-        f"{first_write:.1f}s" if first_write is not None else "未进入",
+        "在 8 秒内收敛到 PAPER_STUDY",
+        first_paper is not None and first_paper <= 8.0,
+        f"{first_paper:.1f}s" if first_paper is not None else "未进入",
     )
     check(
         "从未误判为分心",
@@ -140,35 +140,30 @@ def scenario_a() -> None:
 
 
 # ======================================================================
-# B. 阅读 → 专注
+# B. 纸质学习（静止阅读）→ 专注
 # ======================================================================
 
 
 def scenario_b() -> None:
-    section("B. 阅读（手压着书、基本不动）→ READING / FOCUSED")
+    section("B. 纸质学习-阅读（手压着书、基本不动）→ PAPER_STUDY / FOCUSED")
 
     scn = S.new_scenario()
     scn.step(2, hands=[S.make_hand("right", S.ROI_CENTER["paper"])], objects=book_object())
     scn.hold_still(14.0, "paper", objects=book_object())
 
     behavior = scn.behaviors[-1][1]
-    first_read = scn.first_time_in_behavior(Behavior.READING)
+    first_paper = scn.first_time_in_behavior(Behavior.PAPER_STUDY)
 
-    check("最终行为为 READING", behavior is Behavior.READING, f"实际 {behavior.value}")
+    check("最终行为为 PAPER_STUDY", behavior is Behavior.PAPER_STUDY, f"实际 {behavior.value}")
     check(
         "判定为 FOCUSED",
         scn.ever_in_state(FocusState.FOCUSED),
         f"首次 {scn.first_time_in_state(FocusState.FOCUSED)}",
     )
     check(
-        "在 6 秒内判定为 READING（未与 WRITING 混淆）",
-        first_read is not None and first_read <= 6.0,
-        f"首次 READING {first_read:.1f}s" if first_read is not None else "未进入 READING",
-    )
-    check(
-        "从未被判为 WRITING",
-        not scn.ever_in_behavior(Behavior.WRITING),
-        hist(scn.behavior_history()),
+        "在 6 秒内判定为 PAPER_STUDY（静止阅读支路生效）",
+        first_paper is not None and first_paper <= 6.0,
+        f"首次 {first_paper:.1f}s" if first_paper is not None else "未进入",
     )
 
 
@@ -246,7 +241,7 @@ def scenario_d() -> None:
     )
     check(
         "重新进入专注状态",
-        scn.ever_in_state(FocusState.FOCUSED) and scn.behaviors[-1][1] is Behavior.WRITING,
+        scn.ever_in_state(FocusState.FOCUSED) and scn.behaviors[-1][1] is Behavior.PAPER_STUDY,
         f"最终行为 {scn.behaviors[-1][1].value}",
     )
 
@@ -353,8 +348,8 @@ def scenario_f() -> None:
         f"首次 {scn.first_time_in_state(FocusState.FOCUSED)}",
     )
     check(
-        "未误判为 WRITING（键盘区与书写区默认不重叠）",
-        not scn.ever_in_behavior(Behavior.WRITING),
+        "未误判为纸质学习（键盘区与书写区默认不重叠）",
+        not scn.ever_in_behavior(Behavior.PAPER_STUDY),
         hist(scn.behavior_history()),
     )
     check(
@@ -518,9 +513,8 @@ def scenario_g() -> None:
         f"{first_fid:.1f}s" if first_fid is not None else "未进入",
     )
     check(
-        "未误判为书写 / 阅读（行为区域判定生效）",
-        not scn.ever_in_behavior(Behavior.WRITING)
-        and not scn.ever_in_behavior(Behavior.READING),
+        "未误判为纸质学习（行为区域判定生效）",
+        not scn.ever_in_behavior(Behavior.PAPER_STUDY),
         hist(scn.behavior_history()),
     )
 
@@ -547,8 +541,8 @@ def scenario_h() -> None:
         hist(scn.state_history()),
     )
     check(
-        "短暂干扰后仍为 WRITING",
-        scn.behaviors[-1][1] is Behavior.WRITING,
+        "短暂干扰后仍为 PAPER_STUDY",
+        scn.behaviors[-1][1] is Behavior.PAPER_STUDY,
         f"实际 {scn.behaviors[-1][1].value}",
     )
     check(
@@ -788,7 +782,7 @@ def scenario_k() -> None:
 
     check(
         "手机离开后不再判 PHONE_USE",
-        scn.behaviors[-1][1] in (Behavior.WRITING, Behavior.READING),
+        scn.behaviors[-1][1] is Behavior.PAPER_STUDY,
         f"实际 {scn.behaviors[-1][1].value}",
     )
     check(
@@ -830,11 +824,11 @@ def scenario_l() -> None:
     section("L. 契约与不变量")
 
     expected_behaviors = {
-        "WRITING", "READING", "COMPUTER_STUDY", "PHONE_USE",
+        "PAPER_STUDY", "COMPUTER_STUDY", "PHONE_USE",
         "FIDGETING", "IDLE", "HAND_AWAY", "AWAY", "UNKNOWN",
     }
     actual = {b.value for b in Behavior}
-    check("行为枚举完整（9 种）", actual == expected_behaviors,
+    check("行为枚举完整（8 种）", actual == expected_behaviors,
           f"缺 {expected_behaviors - actual} 多 {actual - expected_behaviors}")
 
     expected_states = {"FOCUSED", "DISTRACTED", "AWAY", "UNCERTAIN", "PAUSED"}
@@ -850,9 +844,9 @@ def scenario_l() -> None:
         and BEHAVIOR_TO_FOCUS[Behavior.FIDGETING] is FocusState.DISTRACTED,
     )
     check(
-        "三种学习行为 → FOCUSED",
+        "两种学习行为 → FOCUSED",
         all(BEHAVIOR_TO_FOCUS[b] is FocusState.FOCUSED
-            for b in (Behavior.WRITING, Behavior.READING, Behavior.COMPUTER_STUDY)),
+            for b in (Behavior.PAPER_STUDY, Behavior.COMPUTER_STUDY)),
     )
 
     # ---- ROI 不重叠 ----
@@ -1150,8 +1144,8 @@ def scenario_n() -> None:
     scn.hold_still(8.0, "phone", objects=book)
 
     check(
-        "明明在看书 → 判 READING，且从未判玩手机",
-        scn.behavior_at(scn.elapsed()) is Behavior.READING
+        "明明在看书 → 判 PAPER_STUDY，且从未判玩手机",
+        scn.behavior_at(scn.elapsed()) is Behavior.PAPER_STUDY
         and not scn.ever_in_behavior(Behavior.PHONE_USE),
         f"历史 {hist(scn.behavior_history())}",
     )
@@ -1199,16 +1193,16 @@ def scenario_n() -> None:
 
 
 # ======================================================================
-# O. 写字 / 阅读 的区分度（同一根运动能量轴）
+# O. 纸质学习：全能量轴覆盖（静止阅读 → 书写动作，合并后不得有死区）
 # ======================================================================
 
 
 def _paper_motion(seconds: float, jitter: float, freq: float = 2.5):
-    """手在书写区做给定幅度的小幅运动，返回 (写字分, 阅读分, 能量)。
+    """手在书写区做给定幅度的小幅运动，返回 (纸质学习分, 能量, 场景)。
 
-    写字与阅读共用同一根「运动能量」轴，所以必须**沿这根轴扫一遍**才能看出
-    两者是否真的分得开 —— 只测两个端点（完全不动 / 明显在写）是不够的，
-    缺陷恰好藏在中间的过渡带里。
+    读书与写字共用同一根「运动能量」轴。合并成一个行为之后，验收目标从
+    "两条分分得开"变成"**整根轴上分数都不能塌**"——静止端靠静止阅读支路、
+    活动端靠书写动作支路，中间不允许出现两边都接不住的死区。
     """
     scn = S.new_scenario()
     base = S.ROI_CENTER["paper"]
@@ -1235,7 +1229,7 @@ def _paper_motion(seconds: float, jitter: float, freq: float = 2.5):
     verdict = captured[-1]
 
     energy = None
-    for s in verdict.evidence.get(Behavior.WRITING, []):
+    for s in verdict.evidence.get(Behavior.PAPER_STUDY, []):
         if "运动能量" in s:
             try:
                 energy = float(s.split("运动能量")[1].strip().split()[0])
@@ -1243,55 +1237,43 @@ def _paper_motion(seconds: float, jitter: float, freq: float = 2.5):
                 energy = None
 
     return (
-        verdict.raw_scores.get(Behavior.WRITING, 0.0),
-        verdict.raw_scores.get(Behavior.READING, 0.0),
+        verdict.raw_scores.get(Behavior.PAPER_STUDY, 0.0),
         energy,
         scn,
     )
 
 
 def scenario_o() -> None:
-    section("O. 写字 / 阅读 的区分度（沿运动能量轴扫描）")
+    section("O. 纸质学习：全能量轴覆盖（静止 → 写字，分数不得塌陷）")
 
-    # 背景：用户反馈「写字和读书之间区分的不好」。旧实现
-    #   read_score = 0.55*时长 + 0.45*静止度
-    # 有两个结构性问题：
-    #   ① 时长项与写字**共用** paper_duration，且 2.5s 后恒为 1.0 → 阅读分有
-    #      一条 0.550 的**硬下限**。写字时手也压在纸上，阅读照样白拿 0.550，
-    #      而写字封顶 1.000 → 两者最大差距只有 0.45 且永远弥合不了。
-    #   ② 静止度只在能量 0.006~0.018 之间变化，而写字能量项要到 0.05 才满分
-    #      → 「手在写」的整段 (0.018~0.05) 里静止度恒为 0，反而失去区分力。
-    # 现象就是两条分在中段同时很高、只差零点几，观感上「分不开」。
-    #
-    # 修法：把「静止」从加分项改成**必要条件**（手在动 → 阅读分归零）。
-    # 本组沿能量轴密集采样，确认：明显在写时阅读必须真的低下来，且静止不动
-    # 的真阅读仍然必须胜出（否则就只是把阅读判定废掉了）。
+    # 背景：2026-09-29 起 READING 与 WRITING 合并为 PAPER_STUDY。合并前用户
+    # 反馈"写字和读书分不开"（旧实现阅读有 0.550 硬下限）；合并后这个问题
+    # 自然消失，但**新的风险**是：两条支路如果哪条在中间能量带接不住，会出现
+    # "手明明在纸面上、分数却掉下去"的死区。本组沿能量轴密集采样，
+    # 确认整根轴上纸质学习分都保持在高位。
 
     # 铺轴：从"完全不动"到"明显在写"（抖动 → 能量，实测映射）
     jitters = [0.0, 0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.006, 0.012]
     rows = []
     for j in jitters:
-        w, r, e, _scn = _paper_motion(10.0, j)
-        rows.append({"j": j, "w": w, "r": r, "e": e})
+        p, e, _scn = _paper_motion(10.0, j)
+        rows.append({"j": j, "p": p, "e": e})
 
     say()
-    say(f"  {'抖动':>8} {'能量':>9} {'写字分':>8} {'阅读分':>8} {'差(写-读)':>10}")
+    say(f"  {'抖动':>8} {'能量':>9} {'纸质学习分':>10}")
     for row in rows:
         e = "n/a" if row["e"] is None else f"{row['e']:.4f}"
-        say(f"  {row['j']:>8.4f} {e:>9} {row['w']:>8.3f} {row['r']:>8.3f} "
-            f"{row['w'] - row['r']:>10.3f}")
+        say(f"  {row['j']:>8.4f} {e:>9} {row['p']:>10.3f}")
 
-    # ---- 1) 真阅读（几乎不动）必须由阅读胜出 ----
+    # ---- 1) 静止端：静止阅读支路必须把分撑起来 ----
     still = rows[0]
     check(
-        "真阅读（完全不动）→ 阅读分胜出（对照：不能把阅读判定废掉）",
-        still["r"] > still["w"],
-        f"写字 {still['w']:.3f} / 阅读 {still['r']:.3f}",
+        "完全静止（读书）→ 纸质学习分 ≥0.80（静止阅读支路生效）",
+        still["p"] >= 0.80,
+        f"分数 {still['p']:.3f}",
     )
 
-    # ---- 2) 明显在写时，两条必须**真的分开** ----
-    # 这里用「差值」而不是「谁赢」：只看谁赢的话，0.70 vs 0.68 也算赢，
-    # 但那正是用户说的"分不开"。要求有一个可感知的分离度。
+    # ---- 2) 活动端：书写动作支路必须把分撑起来 ----
     active = [row for row in rows
               if row["e"] is not None and row["e"] >= 0.03]
     check(
@@ -1299,64 +1281,35 @@ def scenario_o() -> None:
         len(active) >= 3,
         f"{len(active)} 个采点能量 ≥0.03",
     )
-    min_gap = min((row["w"] - row["r"]) for row in active) if active else 0.0
+    min_active = min(row["p"] for row in active) if active else 0.0
     check(
-        "明显在写时，写字分比阅读分高出足够多（分离度 ≥0.30）",
-        min_gap >= 0.30,
-        f"最小差值 {min_gap:.3f}（采点 {len(active)} 个）",
+        "明显在写 → 纸质学习分 ≥0.70（书写动作支路生效）",
+        min_active >= 0.70,
+        f"最小分数 {min_active:.3f}（采点 {len(active)} 个）",
     )
 
-    # ---- 3) 阅读分不再有「够久就白拿」的硬下限 ----
-    # 旧实现下写字时的阅读分恒为 0.550 —— 这条断言在修复前会失败。
-    active_reads = [row["r"] for row in active]
+    # ---- 3) 整根轴不得有死区 ----
+    # 合并前"写字 vs 阅读"互相抢分的过渡带，合并后必须被两条支路之一接住。
+    min_all = min(row["p"] for row in rows)
+    worst = min(rows, key=lambda r: r["p"])
     check(
-        "明显在写时，阅读分被真正压低（不再靠时长白拿 0.55）",
-        active_reads and max(active_reads) < 0.30,
-        f"最大阅读分 {max(active_reads):.3f}（旧实现恒为 0.550）",
+        "全能量轴（含中间过渡带）纸质学习分 ≥0.60（无死区）",
+        min_all >= 0.60,
+        f"最低点 抖动{worst['j']:.4f} → {worst['p']:.3f}",
     )
 
-    # ---- 4) 过渡带里不得出现「两条同时很高」 ----
-    # 两条都 ≥0.80 意味着用户看到的两个显示条同时满格、只能靠零点几决胜。
-    both_high = [row for row in rows
-                 if row["w"] >= 0.80 and row["r"] >= 0.80]
-    detail = ", ".join(
-        f"抖动{row['j']:.4f}(写字{row['w']:.2f}/阅读{row['r']:.2f})"
-        for row in both_high
-    )
-    check(
-        "不存在「写字分与阅读分同时 ≥0.80」的采点",
-        not both_high,
-        detail if detail else "无重叠",
-    )
-
-    # ---- 5) 单调性：活动量越大越像写字、越不像阅读 ----
-    ws = [row["w"] for row in rows if row["e"] is not None]
-    rs = [row["r"] for row in rows if row["e"] is not None]
-    check(
-        "写字分随活动量单调不降",
-        all(b >= a - 1e-9 for a, b in zip(ws, ws[1:])),
-        str([round(v, 2) for v in ws]),
-    )
-    check(
-        "阅读分随活动量单调不增",
-        all(b <= a + 1e-9 for a, b in zip(rs, rs[1:])),
-        str([round(v, 2) for v in rs]),
-    )
-
-    # ---- 6) 对照组：真阅读场景（书 + 手压着不动）仍必须判 READING ----
-    # 与 B 组同型但更严格：这里同时要求"不得被判成写字"。
+    # ---- 4) 对照组：真阅读场景（书 + 手压着不动）仍判 PAPER_STUDY ----
     scn = S.new_scenario()
     scn.step(2, hands=[S.make_hand("right", S.ROI_CENTER["paper"])],
              objects=book_object())
     scn.hold_still(14.0, "paper", objects=book_object())
     check(
-        "对照组：手压着书不动 14s → 仍判 READING（不是 WRITING）",
-        scn.behavior_at(scn.elapsed()) is Behavior.READING
-        and not scn.ever_in_behavior(Behavior.WRITING),
+        "对照组：手压着书不动 14s → 判 PAPER_STUDY",
+        scn.behavior_at(scn.elapsed()) is Behavior.PAPER_STUDY,
         f"历史 {hist(scn.behavior_history())}",
     )
 
-    # ---- 7) 对照组：翻页（手短暂离开但书还在）不得被判成写字 ----
+    # ---- 5) 对照组：翻页（手短暂离开但书还在）不得掉出纸质学习 ----
     scn = S.new_scenario()
     scn.step(2, hands=[S.make_hand("right", S.ROI_CENTER["paper"])],
              objects=book_object())
@@ -1364,9 +1317,95 @@ def scenario_o() -> None:
     scn.no_hands(2.0, objects=book_object())     # 翻页：手短暂离开
     scn.hold_still(6.0, "paper", objects=book_object())
     check(
-        "对照组：阅读中途手短暂离开（翻页）→ 全程不判写字",
-        not scn.ever_in_behavior(Behavior.WRITING),
+        "对照组：阅读中途手短暂离开（翻页）→ 仍判 PAPER_STUDY",
+        scn.behavior_at(scn.elapsed()) is Behavior.PAPER_STUDY,
         f"历史 {hist(scn.behavior_history())}",
+    )
+
+
+# ======================================================================
+# P. 位置先验关闭：标定框不得影响任何结论（判定只看物体检测 + 动作）
+# ======================================================================
+
+
+def scenario_p() -> None:
+    section("P. 位置先验关闭：paper/keyboard/phone/desk 框不参与判定")
+
+    cfg_on = S.load_test_config()  # 测试默认：先验开启（对照组用）
+    cfg_off = S.load_test_config({"behavior": {"use_position_prior": False}})
+
+    # ---- P1 对照组（先验开启）：手在 paper 框 + 书写动作 → PAPER_STUDY ----
+    scn_on = S.new_scenario(config=cfg_on)
+    scn_on.step(3, hands=[S.make_hand("right", S.ROI_CENTER["paper"])])
+    scn_on.wiggle(12.0, "paper", amplitude=0.012, frequency=2.5)
+    check(
+        "P1 对照（先验开启）：paper 框 + 书写动作 → PAPER_STUDY",
+        scn_on.ever_in_behavior(Behavior.PAPER_STUDY),
+        hist(scn_on.behavior_history()),
+    )
+
+    # ---- P2 先验关闭：完全相同的输入、无 book 物体 → 不得判 PAPER_STUDY ----
+    scn_off = S.new_scenario(config=cfg_off)
+    scn_off.step(3, hands=[S.make_hand("right", S.ROI_CENTER["paper"])])
+    scn_off.wiggle(12.0, "paper", amplitude=0.012, frequency=2.5)
+    check(
+        "P2 先验关闭：同输入（未检出 book）→ 从不判 PAPER_STUDY",
+        not scn_off.ever_in_behavior(Behavior.PAPER_STUDY),
+        hist(scn_off.behavior_history()),
+    )
+
+    # ---- P3 先验关闭 + 检出 book：物体 + 书写动作必须仍判 PAPER_STUDY ----
+    # 对照意义：证明 P2 是"位置被关掉"，不是"纸质学习判定整个被废掉"。
+    scn_book = S.new_scenario(config=cfg_off)
+    scn_book.step(3, hands=[S.make_hand("right", S.ROI_CENTER["paper"])],
+                  objects=book_object())
+    scn_book.wiggle(12.0, "paper", amplitude=0.012, frequency=2.5,
+                    objects=book_object())
+    check(
+        "P3 先验关闭：检出 book + 书写动作 → 仍判 PAPER_STUDY",
+        scn_book.ever_in_behavior(Behavior.PAPER_STUDY),
+        hist(scn_book.behavior_history()),
+    )
+
+    # ---- P4 先验关闭：手在 keyboard 框 + 键击动作、无键盘物体 → 不判电脑学习 ----
+    scn_kb = S.new_scenario(config=cfg_off)
+    scn_kb.step(2, hands=[S.make_hand("right", S.ROI_CENTER["keyboard"])])
+    scn_kb.type_burst(14.0, "keyboard")
+    check(
+        "P4 先验关闭：keyboard 框 + 键击（未检出键盘物体）→ 从不判 COMPUTER_STUDY",
+        not scn_kb.ever_in_behavior(Behavior.COMPUTER_STUDY),
+        hist(scn_kb.behavior_history()),
+    )
+
+    # ---- P5 对照组（先验开启）：同输入 → 位置兜底仍可判电脑学习 ----
+    scn_kb_on = S.new_scenario(config=cfg_on)
+    scn_kb_on.step(2, hands=[S.make_hand("right", S.ROI_CENTER["keyboard"])])
+    scn_kb_on.type_burst(14.0, "keyboard")
+    check(
+        "P5 对照（先验开启）：同输入 → 位置兜底判 COMPUTER_STUDY",
+        scn_kb_on.ever_in_behavior(Behavior.COMPUTER_STUDY),
+        hist(scn_kb_on.behavior_history()),
+    )
+
+    # ---- P6 先验关闭：手在 phone 框 + 无手机物体 → 不得判玩手机 ----
+    scn_ph = S.new_scenario(config=cfg_off)
+    scn_ph.step(2, hands=[S.make_hand("right", S.ROI_CENTER["phone"])])
+    scn_ph.hold_still(12.0, "phone")
+    check(
+        "P6 先验关闭：phone 框 + 手停留（未检出手机）→ 从不判 PHONE_USE",
+        not scn_ph.ever_in_behavior(Behavior.PHONE_USE),
+        hist(scn_ph.behavior_history()),
+    )
+
+    # ---- P7 先验关闭 + 检出手机物体：检测通路完好，必须仍判玩手机 ----
+    scn_ph2 = S.new_scenario(config=cfg_off)
+    scn_ph2.step(2, hands=[S.make_hand("right", S.ROI_CENTER["phone"])],
+                 objects=phone_object())
+    scn_ph2.hold_still(12.0, "phone", objects=phone_object())
+    check(
+        "P7 先验关闭：检出手机 + 手与它接触 → 仍判 PHONE_USE",
+        scn_ph2.ever_in_behavior(Behavior.PHONE_USE),
+        hist(scn_ph2.behavior_history()),
     )
 
 
@@ -1378,7 +1417,7 @@ SCENARIOS = {
     "A": scenario_a, "B": scenario_b, "C": scenario_c, "D": scenario_d,
     "E": scenario_e, "F": scenario_f, "G": scenario_g, "H": scenario_h,
     "I": scenario_i, "J": scenario_j, "K": scenario_k, "L": scenario_l,
-    "M": scenario_m, "N": scenario_n, "O": scenario_o,
+    "M": scenario_m, "N": scenario_n, "O": scenario_o, "P": scenario_p,
 }
 
 
